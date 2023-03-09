@@ -1,5 +1,5 @@
 # Slink
-Inspired by uplink, a simple way to build rest API clients without OpenAPI.
+Inspired by [uplink](https://uplink.readthedocs.io/en/stable/), a simple way to build rest API clients without OpenAPI.
 
 # Install
 ```
