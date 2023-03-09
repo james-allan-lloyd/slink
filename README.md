@@ -2,11 +2,14 @@
 Inspired by uplink, a simple way to build rest API clients without OpenAPI.
 
 # Install
+```
 poetry install
+```
 
 # Basic Usage
 Model your resource in Pydantic
 ```python
+from pydantic import BaseModel
 class MyResource(BaseModel):
     name: str
     value: int
@@ -14,6 +17,8 @@ class MyResource(BaseModel):
 
 Create an API
 ```python
+from slink import Api, get, post, Query, Body
+
 class MyTestApi(Api):
 
     # Define a get
