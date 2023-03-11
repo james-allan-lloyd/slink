@@ -1,4 +1,6 @@
+from typing import Any, Protocol, Generator
 from urllib.parse import urljoin
+from attr import dataclass
 import requests
 import inspect
 
@@ -52,17 +54,65 @@ class DecoratorParser:
 
 
 def get(url_template, **kwargs):
+    pager = None
+
     def wrap_get(get_impl):
         decoratorParser = DecoratorParser(kwargs, get_impl)
 
         def call_get(self: Api, *args, **kwargs):
             params, body = decoratorParser.parse(self, args, kwargs)
             url = self.construct_url(url_template, kwargs)
-
+            # if pager is not None:
+            #     for page in pager.pages(url):
+            #         params.update(page.params)
+            #         page_response = self.session.get(page.url, params=params)
+            #         for value in pager.values(page_response):
+            #             self._response = value
+            #             yield get_impl(self, *args, **kwargs)
+            # else:
             self._response = self.session.get(url, params=params)
             result = get_impl(self, *args, **kwargs)
             self._response = None
             return result
+
+        return call_get
+
+    return wrap_get
+
+
+@dataclass
+class Page:
+    params: dict[str, Any]
+    url: str
+
+
+class Pager(Protocol):
+    def pages(self, url: str) -> Generator[Page, None, None]:  # type: ignore
+        pass
+
+    def process(self, response: requests.Response):
+        pass
+
+
+def get_pages(url_template, pager: Pager | None = None, **kwargs):
+    if pager is None:
+        raise Exception()
+
+    def wrap_get(get_impl):
+        decoratorParser = DecoratorParser(kwargs, get_impl)
+
+        def call_get(self: Api, *args, **kwargs):
+            params, body = decoratorParser.parse(self, args, kwargs)
+            url = self.construct_url(url_template, kwargs)
+            for page in pager.pages(url):
+                params.update(page.params)
+                self._response = self.session.get(page.url, params=params)
+                pager.process(self._response)
+                # for value in pager.values(page_response):
+                #     self._response = value
+                for value in get_impl(self, *args, **kwargs):
+                    yield value
+                self._response = None
 
         return call_get
 
