@@ -1,4 +1,4 @@
-from typing import Any, Protocol, Generator
+from typing import Any, Protocol, Generator, Tuple
 from urllib.parse import urljoin
 from attr import dataclass
 import requests
@@ -87,7 +87,7 @@ class Page:
 
 
 class Pager(Protocol):
-    def pages(self, url: str) -> Generator[Page, None, None]:  # type: ignore
+    def pages(self, url: str) -> Generator[Tuple[str, dict], None, None]:  # type: ignore
         pass
 
     def process(self, response: requests.Response):
@@ -104,12 +104,10 @@ def get_pages(url_template, pager: Pager | None = None, **kwargs):
         def call_get(self: Api, *args, **kwargs):
             params, body = decoratorParser.parse(self, args, kwargs)
             url = self.construct_url(url_template, kwargs)
-            for page in pager.pages(url):
-                params.update(page.params)
-                self._response = self.session.get(page.url, params=params)
+            for url, params in pager.pages(url):
+                params.update(params)
+                self._response = self.session.get(url, params=params)
                 pager.process(self._response)
-                # for value in pager.values(page_response):
-                #     self._response = value
                 for value in get_impl(self, *args, **kwargs):
                     yield value
                 self._response = None

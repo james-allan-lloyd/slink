@@ -102,9 +102,7 @@ class SimplePager:
 
     def pages(self, url):
         while self.total is None or self.startAt < self.total:
-            yield Page(
-                url=url, params={"startAt": self.startAt, "maxCount": self.maxCount}
-            )
+            yield url, {"startAt": self.startAt, "maxCount": self.maxCount}
             self.startAt += self.maxCount
 
     def process(self, response):
@@ -143,9 +141,9 @@ def test_it_supports_pagination_directly(mocked_responses):
 
     class PagedApi(Api):
         @get_pages("rest/api/3/pages", pager=SimplePager())
-        def get_paginated(self) -> Generator[int, None, None]:
+        def get_paginated(self):
             for value in self.response.json()["data"]:
-                yield value
+                yield int(value)
 
     api = PagedApi(base_url=base_url)
     actual_results = []
@@ -155,7 +153,7 @@ def test_it_supports_pagination_directly(mocked_responses):
     assert actual_results == data
 
 
-def test_it_allows_early_termination(mocked_responses):
+def test_it_supports_early_termination(mocked_responses):
     """
     its important that we allow pagination to terminate early, so we don't force the user to iterate all pages all the
     time
@@ -179,6 +177,66 @@ def test_it_allows_early_termination(mocked_responses):
 
     assert page_responses[0].call_count == 1
     assert page_responses[1].call_count == 1
+
+
+class LinkedPager:
+    def __init__(self) -> None:
+        self.next_url = None
+
+    def pages(self, url):
+        yield url, {}  # first page is just the raw url
+        while self.next_url:
+            yield self.next_url, {}
+
+    def process(self, response):
+        self.next_url = response.json()["links"].get("next")
+
+
+def test_it_supports_linked_page_iterators(mocked_responses):
+    """
+    Another style of iterators is the linked page iterator, where the link to the next page is contained in the
+    response.
+    """
+    base_url = "http://example.com"
+    data = list(range(1, 20))
+    num_pages = 4
+    for i in range(0, num_pages):
+        page = {
+            "data": data[i * 5 : (i + 1) * 5],
+            "total": len(data),
+            "links": {"next": f"{base_url}/rest/api/3/pages?page={i+1}"},
+        }
+        if i + 1 >= num_pages:
+            page["links"] = {}
+        print(page)
+        if i == 0:
+            mocked_responses.get(
+                f"{base_url}/rest/api/3/pages",
+                json=page,
+            )
+        else:
+            mocked_responses.get(
+                f"{base_url}/rest/api/3/pages",
+                json=page,
+                match=[
+                    resp.matchers.query_param_matcher(
+                        {
+                            "page": i,
+                        }
+                    )
+                ],
+            )
+
+    class PagedApi(Api):
+        @get_pages("rest/api/3/pages", pager=LinkedPager())
+        def get_paginated(self):
+            for value in self.response.json()["data"]:
+                yield int(value)
+
+    api = PagedApi(base_url=base_url)
+    actual_data = [e for e in api.get_paginated()]
+
+    assert actual_data == data
 
 
 # put
