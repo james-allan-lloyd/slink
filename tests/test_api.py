@@ -244,18 +244,83 @@ def test_it_supports_linked_page_iterators(mocked_responses):
 # patch
 
 
-def test_it_raises_exception_if_decorator_has_references_not_in_signature(
-    mocked_responses,
-):
-    pass
+def test_it_raises_error_if_position_args_used():
+    api = MyTestApi(base_url="http://example.com")
+    with pytest.raises(Exception) as excinfo:
+        api.get_resource("resource_key")
+
+    assert "Must use keyword arguments in api calls" in str(excinfo)
+
+
+def test_it_raises_exception_if_decorator_has_references_not_in_signature():
+    with pytest.raises(Exception) as e:
+
+        class TestApi(Api):
+            @get("rest/api/3/{some_other_arg}")
+            def get_api(self, my_arg: str):
+                return self.response.json()
+
+        # TODO: it would be better to check it before the call with inspect
+        TestApi(base_url="http://example.com").get_api(my_arg="foo")
+
+    assert "Cannot match 'some_other_arg' in url to function parameters" in str(e)
 
 
 def test_it_raises_exception_for_multiple_json_body(mocked_responses):
-    pass
+    with pytest.raises(Exception) as e:
+
+        class TestApi(Api):
+            @post("rest/api/3", body=Body(), body2=Body())
+            def post_resource(self, resource_key: str, body: dict, body2: dict):
+                pass
+
+    assert "Can only have one Body() argument to @post" in str(e)
 
 
 def test_it_raises_exception_for_get_with_body(mocked_responses):
-    pass
+    with pytest.raises(Exception) as e:
+
+        class TestApi(Api):
+            @get("rest/api/3", body=Body())
+            def post_resource(self, body: dict):
+                pass
+
+    assert "Cannot pass Body() argument to @get" in str(e)
 
 
-# it throws if get_pages is given no pager
+def test_it_raises_exceptions_in_response_parsing(mocked_responses):
+    base_url = "http://example.com"
+    mocked_responses.get(
+        f"{base_url}/rest/api/3",
+        json={"message": "hello world"},
+    )
+    msg = "Failure to parse response"
+
+    class ExceptionalApi(Api):
+        @get("rest/api/3")
+        def get_api(self, my_arg: str):
+            raise Exception(msg)
+
+    api = ExceptionalApi(base_url=base_url)
+
+    with pytest.raises(Exception) as e:
+        api.get_api(my_arg="foo")
+
+    # not the best test, just making sure it passes up exceptions
+    assert msg in str(e)
+
+
+def test_it_raises_error_if_base_url_is_missing_scheme():
+    with pytest.raises(Exception) as e:
+        MyTestApi(base_url="hostname.without.scheme")
+
+
+def test_it_throws_if_get_pages_is_given_no_pager():
+    with pytest.raises(Exception) as e:
+
+        class TestApi(Api):
+            @get_pages("rest/api/3")
+            def get_api(self, my_arg: str):
+                pass
+
+    assert "Must supply pager argument to get_pages" in str(e)
