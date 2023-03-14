@@ -1,9 +1,10 @@
 [tool.poetry]
-name = "slink"
+name = "slink-api"
 version = "0.1.0"
-description = ""
+description = "Simple and expressive REST clients without the fuss"
 authors = ["James Lloyd <james.allan.lloyd@gmail.com>"]
 readme = "README.md"
+packages = [{include = "slink"}]
 
 [tool.poetry.dependencies]
 python = "^3.11"
