@@ -4,6 +4,7 @@ version = "0.1.1"
 description = "Simple and expressive REST clients without the fuss"
 authors = ["James Lloyd <james.allan.lloyd@gmail.com>"]
 readme = "README.md"
+repository = "https://github.com/james-allan-lloyd/slink"
 packages = [{include = "slink"}]
 
 [tool.poetry.dependencies]
