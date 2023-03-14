@@ -1,18 +1,18 @@
 import functools
-from typing import Any, Protocol, Generator, Tuple
+from typing import Any, Optional, Protocol, Generator, Tuple
 from urllib.parse import urljoin, urlparse
 import requests
 import inspect
 
 
 class Api:
-    def __init__(self, base_url="", session: requests.Session | None = None) -> None:
+    def __init__(self, base_url="", session: Optional[requests.Session] = None) -> None:
         parsed_url = urlparse(base_url)
         if parsed_url.scheme == "":
             raise Exception(f"base_url '{base_url}' is missing scheme")
         self.session = session if session else requests.Session()
         self.base_url = base_url
-        self._response: requests.Response | None
+        self._response: Optional[requests.Response] = None
 
     @property
     def response(self) -> requests.Response:
@@ -88,7 +88,7 @@ class Pager(Protocol):
         pass
 
 
-def get_pages(url_template, pager: Pager | None = None, **kwargs):
+def get_pages(url_template, pager: Optional[Pager] = None, **kwargs):
     if pager is None:
         raise ValueError("Must supply pager argument to get_pages")
 
