@@ -1,7 +1,6 @@
 import functools
 from typing import Any, Protocol, Generator, Tuple
 from urllib.parse import urljoin, urlparse
-from attr import dataclass
 import requests
 import inspect
 
@@ -79,12 +78,6 @@ def get(url_template, **kwargs):
         return call_get
 
     return wrap_get
-
-
-@dataclass
-class Page:
-    params: dict[str, Any]
-    url: str
 
 
 class Pager(Protocol):
