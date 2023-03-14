@@ -92,6 +92,8 @@ def get_pages(url_template, pager: Optional[Pager] = None, **kwargs):
     if pager is None:
         raise ValueError("Must supply pager argument to get_pages")
 
+    pager_actual = pager  # allow type deduction in inner function
+
     decoratorParser = DecoratorParser(kwargs)
     if len(decoratorParser.bodyParams) > 0:
         raise Exception(
@@ -103,10 +105,10 @@ def get_pages(url_template, pager: Optional[Pager] = None, **kwargs):
         def call_get(self: Api, *args, **kwargs):
             params, body = decoratorParser.parse(args, kwargs)
             url = self.construct_url(url_template, kwargs)
-            for url, params in pager.pages(url):
+            for url, params in pager_actual.pages(url):
                 params.update(params)
                 self._response = self.session.get(url, params=params)
-                pager.process(self._response)
+                pager_actual.process(self._response)
                 for value in get_impl(self, *args, **kwargs):
                     yield value
                 self._response = None
