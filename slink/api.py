@@ -48,7 +48,7 @@ class DecoratorParser:
         self.queryParams = [k for k, v in kwargs.items() if type(v) == Query]
         self.bodyParams = [k for k, v in kwargs.items() if type(v) == Body]
 
-    def parse(self, args, kwargs):
+    def parse(self, args, kwargs) -> Tuple[dict[str, str], list[str]]:
         if len(args):
             raise Exception("Must use keyword arguments in api calls")
 
@@ -58,6 +58,35 @@ class DecoratorParser:
         return params, body
 
 
+class Pager(Protocol):
+    def pages(self, url: str) -> Generator[Tuple[str, dict], None, None]:  # type: ignore
+        pass
+
+    def process(self, response: requests.Response):
+        pass
+
+
+def _wrap_response_func(
+    method: str, url_template: str, decoratorParser: DecoratorParser
+):
+    def wrap(process_response):
+        @functools.wraps(process_response)
+        def make_request(self: Api, *args, **kwargs):
+            params, body = decoratorParser.parse(args, kwargs)
+            json = body[0] if len(body) else None
+            url = self.construct_url(url_template, kwargs)
+            self._response = self.session.request(
+                method=method, url=url, params=params, json=json
+            )
+            result = process_response(self, **kwargs)
+            self._response = None
+            return result
+
+        return make_request
+
+    return wrap
+
+
 def get(url_template, **kwargs):
     decoratorParser = DecoratorParser(kwargs)
     if len(decoratorParser.bodyParams) > 0:
@@ -65,27 +94,21 @@ def get(url_template, **kwargs):
             f"Cannot pass Body() argument to @get (got {', '.join(decoratorParser.bodyParams)})"
         )
 
-    def wrap_get(get_impl):
-        @functools.wraps(get_impl)
-        def call_get(self: Api, *args, **kwargs):
-            params, body = decoratorParser.parse(args, kwargs)
-            url = self.construct_url(url_template, kwargs)
-            self._response = self.session.get(url, params=params)
-            result = get_impl(self, **kwargs)
-            self._response = None
-            return result
-
-        return call_get
-
-    return wrap_get
+    return _wrap_response_func(
+        "GET", url_template=url_template, decoratorParser=decoratorParser
+    )
 
 
-class Pager(Protocol):
-    def pages(self, url: str) -> Generator[Tuple[str, dict], None, None]:  # type: ignore
-        pass
+def post(url_template: str, **kwargs):
+    decoratorParser = DecoratorParser(kwargs)
+    if len(decoratorParser.bodyParams) > 1:
+        raise Exception(
+            f"Can only have one Body() argument to @post (got {', '.join(decoratorParser.bodyParams)})"
+        )
 
-    def process(self, response: requests.Response):
-        pass
+    return _wrap_response_func(
+        "POST", url_template=url_template, decoratorParser=decoratorParser
+    )
 
 
 def get_pages(url_template, pager: Optional[Pager] = None, **kwargs):
@@ -116,26 +139,3 @@ def get_pages(url_template, pager: Optional[Pager] = None, **kwargs):
         return call_get
 
     return wrap_get
-
-
-def post(url_template: str, **kwargs):
-    decoratorParser = DecoratorParser(kwargs)
-    if len(decoratorParser.bodyParams) > 1:
-        raise Exception(
-            f"Can only have one Body() argument to @post (got {', '.join(decoratorParser.bodyParams)})"
-        )
-
-    def wrap_post(post_impl):
-        @functools.wraps(post_impl)
-        def call_post(self: Api, *args, **kwargs):
-            params, body = decoratorParser.parse(args, kwargs)
-            url = self.construct_url(url_template, kwargs)
-
-            self._response = self.session.post(url, params=params, json=body[0])
-            result = post_impl(self, *args, **kwargs)
-            self._response = None
-            return result
-
-        return call_post
-
-    return wrap_post
