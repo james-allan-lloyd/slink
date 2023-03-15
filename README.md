@@ -1,14 +1,18 @@
 # Slink
+
 Inspired by [uplink](https://uplink.readthedocs.io/en/stable/), a simple way to build rest API clients without OpenAPI,
 and without a lot of requests boilerplate.
 
-# Install
-```
+## Install
+
+```shell
 poetry install
 ```
 
-# Basic Usage
+## Basic Usage
+
 Model your resource in Pydantic
+
 ```python
 from pydantic import BaseModel
 class MyResource(BaseModel):
@@ -17,6 +21,7 @@ class MyResource(BaseModel):
 ```
 
 Create an API
+
 ```python
 from slink import Api, get, post, Query, Body
 
@@ -39,6 +44,7 @@ class MyTestApi(Api):
 ```
 
 Then use it:
+
 ```python
 api = MyTestApi(base_url="http://example.com/")
 result = api.get_resource(resource_key="REST")
@@ -46,7 +52,8 @@ result = api.get_resource_with_param(resource_key="REST", testvalue="test")
 result = api.post_resource(resource_key="TEST", body={"foo": "bar"})
 ```
 
-# Pagination
+## Pagination
+
 Slink allows you to elegantly iterate most style of paged APIs. As example, we can implement one of the most common
 pagination patterns, an an offseted pagination API. With such an API, you request an offset of the dataset with some
 limit on the size of the data returned:
@@ -108,8 +115,10 @@ for e in api.get_paginated():
         break
 ```
 
-# Limitations and TODOs
+## Limitations and TODOs
+
+- [x] ~~put, delete~~
 - [ ] error handling and robustness
 - [ ] retry patterns
-- [ ] put, patch, del
+- [ ] patch, head
 - [ ] supporting other http client libraries, including async ones

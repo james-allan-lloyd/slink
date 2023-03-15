@@ -2,7 +2,7 @@ from typing import Generator
 import pytest
 import responses
 
-from slink.api import Api, get_pages
+from slink import Api, get_pages
 
 from support import DEFAULT_BASE_URL, setup_page_responses, SimplePager, LinkedPager
 
