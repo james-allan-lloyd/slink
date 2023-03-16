@@ -3,6 +3,7 @@ import pytest
 import responses
 
 from slink import Api, get_pages
+from slink.api import Query
 
 from support import DEFAULT_BASE_URL, setup_page_responses, SimplePager, LinkedPager
 
@@ -21,6 +22,43 @@ def test_it_supports_pagination_directly(mocked_responses):
     api = PagedApi(base_url=base_url)
     actual_results = []
     for elem in api.get_paginated():
+        actual_results.append(elem)
+
+    assert actual_results == data
+
+
+def test_it_supports_pagination_with_params(mocked_responses):
+    base_url = DEFAULT_BASE_URL
+    data = list(range(1, 20))
+    page_responses: list[responses.BaseResponse] = []
+    for i in range(0, 20, 5):
+        page = {
+            "data": data[i : i + 5],
+            "total": len(data),
+            "maxResults": 5,
+        }
+        print(page)
+        page_responses.append(
+            mocked_responses.get(
+                f"{base_url}/rest/api/3/pages",
+                json=page,
+                match=[
+                    responses.matchers.query_param_matcher(
+                        {"startAt": i, "maxCount": 5, "foo": "bar"}
+                    )
+                ],
+            )
+        )
+
+    class PagedApi(Api):
+        @get_pages("rest/api/3/pages", pager=SimplePager(), foo=Query())
+        def get_paginated(self, foo: str):
+            for value in self.response.json()["data"]:
+                yield int(value)
+
+    api = PagedApi(base_url=base_url)
+    actual_results = []
+    for elem in api.get_paginated(foo="bar"):
         actual_results.append(elem)
 
     assert actual_results == data

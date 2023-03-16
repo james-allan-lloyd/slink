@@ -89,8 +89,8 @@ def get_pages(url_template, pager: Optional[Pager] = None, **kwargs):
         def call_get(self: Api, *args, **kwargs):
             params, body = decoratorParser.parse(args, kwargs)
             url = self.construct_url(url_template, kwargs)
-            for url, params in pager_actual.pages(url):
-                params.update(params)
+            for url, page_params in pager_actual.pages(url):
+                params.update(page_params)
                 self._response = self.session.get(url, params=params)
                 pager_actual.process(self._response)
                 for value in get_impl(self, *args, **kwargs):
