@@ -1,5 +1,5 @@
 import functools
-from typing import Any, Optional, Protocol, Generator, Tuple
+from typing import Any, Dict, List, Optional, Protocol, Generator, Tuple
 from urllib.parse import urljoin, urlparse
 import requests
 import inspect
@@ -48,7 +48,7 @@ class DecoratorParser:
         self.queryParams = [k for k, v in kwargs.items() if type(v) == Query]
         self.bodyParams = [k for k, v in kwargs.items() if type(v) == Body]
 
-    def parse(self, args, kwargs) -> Tuple[dict[str, str], list[str]]:
+    def parse(self, args, kwargs) -> Tuple[Dict[str, str], List[str]]:
         if len(args):
             raise Exception("Must use keyword arguments in api calls")
 

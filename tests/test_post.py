@@ -2,7 +2,7 @@ import pytest
 import responses
 from slink import Api, Body, post
 
-from tests.support import DEFAULT_BASE_URL, MyTestApi
+from support import DEFAULT_BASE_URL, MyTestApi
 
 
 def test_it_posts_json_body(mocked_responses: responses.RequestsMock):

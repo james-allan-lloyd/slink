@@ -3,7 +3,7 @@ import pytest
 import responses
 from slink.api import Api, Body
 from slink.decorators import get
-from tests.support import DEFAULT_BASE_URL, MyTestApi
+from support import DEFAULT_BASE_URL, MyTestApi
 
 
 def test_it_gets(mocked_responses: responses.RequestsMock):
