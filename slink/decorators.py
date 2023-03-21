@@ -92,21 +92,28 @@ def get_pages(url_template, pager: Optional[Pager] = None, **kwargs):
         )
 
     def wrap_get(get_impl):
-        # @functools.wraps(get_impl)
+        @functools.wraps(get_impl)
         def call_get(self: Api, *args, **kwargs):
             params, body = decoratorParser.parse(args, kwargs)
             url = self.construct_url(url_template, kwargs)
             page_generator = pager_actual.pages(url)
-            for url, page_params in page_generator:
-                params.update(page_params)
-                self._response = self.session.get(url, params=params)
-                print("send", self._response)
-                for value in get_impl(self, *args, **kwargs):
-                    yield value
-                try:
-                    page_generator.send(self._response)
-                except StopIteration:
-                    pass
+            response = None
+            try:
+                while True:
+                    url, page_params = (
+                        page_generator.send(response)
+                        if response
+                        else next(page_generator)
+                    )
+                    params.update(page_params)
+                    response = self.session.get(url, params=params)
+                    assert response
+                    self._response = response
+                    for value in get_impl(self, *args, **kwargs):
+                        yield value
+            except StopIteration:
+                pass
+            finally:
                 self._response = None
 
         return call_get

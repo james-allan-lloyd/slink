@@ -59,8 +59,5 @@ class DecoratorParser:
 
 
 class Pager(Protocol):
-    def pages(self, url: str) -> Generator[Tuple[str, dict], None, None]:  # type: ignore
-        pass
-
-    def process(self, response: requests.Response):
+    def pages(self, url: str) -> Generator[Tuple[str, dict], requests.Response, None]:  # type: ignore
         pass
