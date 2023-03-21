@@ -1,6 +1,10 @@
+import copy
 import functools
+import logging
 from typing import Optional
 from .api import Api, DecoratorParser, Pager
+
+logger = logging.getLogger("slink")
 
 
 def _wrap_response_func(
@@ -12,6 +16,9 @@ def _wrap_response_func(
             params, body = decoratorParser.parse(args, kwargs)
             json = body[0] if len(body) else None
             url = self.construct_url(url_template, kwargs)
+            logger.debug(
+                f"{method} {url} params={params} body={'yes' if json else 'no'}"
+            )
             self._response = self.session.request(
                 method=method, url=url, params=params, json=json
             )
@@ -85,16 +92,21 @@ def get_pages(url_template, pager: Optional[Pager] = None, **kwargs):
         )
 
     def wrap_get(get_impl):
-        @functools.wraps(get_impl)
+        # @functools.wraps(get_impl)
         def call_get(self: Api, *args, **kwargs):
             params, body = decoratorParser.parse(args, kwargs)
             url = self.construct_url(url_template, kwargs)
-            for url, page_params in pager_actual.pages(url):
+            page_generator = pager_actual.pages(url)
+            for url, page_params in page_generator:
                 params.update(page_params)
                 self._response = self.session.get(url, params=params)
-                pager_actual.process(self._response)
+                print("send", self._response)
                 for value in get_impl(self, *args, **kwargs):
                     yield value
+                try:
+                    page_generator.send(self._response)
+                except StopIteration:
+                    pass
                 self._response = None
 
         return call_get

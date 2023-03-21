@@ -20,11 +20,28 @@ def test_it_supports_pagination_directly(mocked_responses):
                 yield int(value)
 
     api = PagedApi(base_url=base_url)
-    actual_results = []
-    for elem in api.get_paginated():
-        actual_results.append(elem)
+    actual_results = list(api.get_paginated())
 
     assert actual_results == data
+
+
+def test_it_supports_multiple_calls(mocked_responses):
+    base_url = DEFAULT_BASE_URL
+    data = list(range(1, 20))
+    setup_page_responses(mocked_responses, base_url, data)
+
+    class PagedApi(Api):
+        @get_pages("rest/api/3/pages", pager=SimplePager())
+        def get_paginated(self):
+            for value in self.response.json()["data"]:
+                yield int(value)
+
+    api = PagedApi(base_url=base_url)
+
+    first_results = list(api.get_paginated())
+    second_results = list(api.get_paginated())
+
+    assert first_results == second_results
 
 
 def test_it_supports_pagination_with_params(mocked_responses):

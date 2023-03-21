@@ -55,26 +55,30 @@ def setup_page_responses(
 class SimplePager:
     def __init__(self, maxCount=5) -> None:
         self.maxCount = maxCount
-        self.startAt = 0
-        self.total = None
 
     def pages(self, url):
-        while self.total is None or self.startAt < self.total:
-            yield url, {"startAt": self.startAt, "maxCount": self.maxCount}
-            self.startAt += self.maxCount
-
-    def process(self, response):
-        self.total = response.json()["total"]
+        startAt = 0
+        total = None
+        while total is None or startAt < total:
+            response = yield url, {"startAt": startAt, "maxCount": self.maxCount}
+            if response:
+                print("iterator response", response)
+                total = response.json()["total"]
+                startAt += self.maxCount
 
 
 class LinkedPager:
     def __init__(self) -> None:
-        self.next_url = None
+        # self.next_url = None
+        pass
 
     def pages(self, url):
-        yield url, {}  # first page is just the raw url
-        while self.next_url:
-            yield self.next_url, {}
+        response = yield url, {}  # first page is just the raw url
+        next_url = response.json()["links"].get("next")
+        while next_url:
+            response = yield next_url, {}
+            if response:
+                next_url = response.json()["links"].get("next")
 
-    def process(self, response):
-        self.next_url = response.json()["links"].get("next")
+    # def process(self, response):
+    #     self.next_url = response.json()["links"].get("next")
