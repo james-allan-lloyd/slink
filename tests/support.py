@@ -1,4 +1,6 @@
+from typing import Generator, Tuple
 from pydantic import BaseModel
+import requests
 import responses
 
 from slink import Api, get, post, Query, Body
@@ -53,28 +55,23 @@ def setup_page_responses(
 
 
 class SimplePager:
-    def __init__(self, maxCount=5) -> None:
-        self.maxCount = maxCount
-        self.startAt = 0
-        self.total = None
+    def __init__(self, max_count=5) -> None:
+        self.max_count = max_count
 
-    def pages(self, url):
-        while self.total is None or self.startAt < self.total:
-            yield url, {"startAt": self.startAt, "maxCount": self.maxCount}
-            self.startAt += self.maxCount
-
-    def process(self, response):
-        self.total = response.json()["total"]
+    def pages(self, url: str) -> Generator[Tuple[str, dict], requests.Response, None]:
+        start_at = 0
+        total = None
+        while total is None or start_at < total:
+            response = yield url, {
+                "startAt": start_at,
+                "maxCount": self.max_count,
+            }
+            total = response.json()["total"]
+            start_at += self.max_count
 
 
 class LinkedPager:
-    def __init__(self) -> None:
-        self.next_url = None
-
-    def pages(self, url):
-        yield url, {}  # first page is just the raw url
-        while self.next_url:
-            yield self.next_url, {}
-
-    def process(self, response):
-        self.next_url = response.json()["links"].get("next")
+    def pages(self, url) -> Generator[Tuple[str, dict], requests.Response, None]:
+        response = yield url, {}  # first page is just the raw url
+        while next_url := response.json()["links"].get("next"):
+            response = yield next_url, {}

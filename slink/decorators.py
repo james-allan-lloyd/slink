@@ -1,6 +1,10 @@
+import copy
 import functools
+import logging
 from typing import Optional
 from .api import Api, DecoratorParser, Pager
+
+logger = logging.getLogger("slink")
 
 
 def _wrap_response_func(
@@ -12,6 +16,9 @@ def _wrap_response_func(
             params, body = decoratorParser.parse(args, kwargs)
             json = body[0] if len(body) else None
             url = self.construct_url(url_template, kwargs)
+            logger.debug(
+                f"{method} {url} params={params} body={'yes' if json else 'no'}"
+            )
             self._response = self.session.request(
                 method=method, url=url, params=params, json=json
             )
@@ -89,12 +96,24 @@ def get_pages(url_template, pager: Optional[Pager] = None, **kwargs):
         def call_get(self: Api, *args, **kwargs):
             params, body = decoratorParser.parse(args, kwargs)
             url = self.construct_url(url_template, kwargs)
-            for url, page_params in pager_actual.pages(url):
-                params.update(page_params)
-                self._response = self.session.get(url, params=params)
-                pager_actual.process(self._response)
-                for value in get_impl(self, *args, **kwargs):
-                    yield value
+            page_generator = pager_actual.pages(url)
+            response = None
+            try:
+                while True:
+                    url, page_params = (
+                        page_generator.send(response)
+                        if response
+                        else next(page_generator)
+                    )
+                    params.update(page_params)
+                    response = self.session.get(url, params=params)
+                    assert response
+                    self._response = response
+                    for value in get_impl(self, *args, **kwargs):
+                        yield value
+            except StopIteration:
+                pass
+            finally:
                 self._response = None
 
         return call_get

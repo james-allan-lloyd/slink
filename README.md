@@ -60,20 +60,20 @@ limit on the size of the data returned:
 
 ```python
 class OffsettedPager:
-    def __init__(self, results_per_page=5) -> None:
-        self.results_per_page = results_per_page
-        self.startAt = 0
-        self.total = None  # needs to be determined
+    def __init__(self, max_count=5) -> None:
+        self.max_count = max_count
 
-    def pages(self, url):
-        while self.total is None or self.startAt < self.total:
-            # yield a tuple of the next url and any parameters to be added to the original request
-            yield url, {"startAt": self.startAt, "results_per_page": self.maxCount}
-            self.startAt += self.results_per_page
-
-    def process(self, response):
-        # update the Pager with any response variables; usually either info about the next page or the total number of pages
-        self.total = response.json()["total"]
+    def pages(self, url: str) -> Generator[Tuple[str, dict], requests.Response, None]:
+        start_at = 0
+        total = None
+        while total is None or start_at < total:
+            # yield a tuple of the next url and any parameters to be added to the original request, get back the response to update the iteration
+            response = yield url, {
+                "startAt": start_at,
+                "maxCount": self.max_count,
+            }
+            total = response.json()["total"]
+            start_at += self.max_count
 ```
 
 You can then use the pager with the `@get_pages` decorator to iterate through the pages:
@@ -87,23 +87,18 @@ class PagedApi(Api):
             yield int(value)
 
 api = PagedApi(base_url=base_url)
-all_results = [e for e in api.get_paginated()]
+all_results = list(api.get_paginated())  # note the list construction because pages are returned as generators
 ```
 
 Another example would be a pagination API where there is a next link:
 
 ```python
 class LinkedPager:
-    def __init__(self) -> None:
-        self.next_url = None
-
-    def pages(self, url):
-        yield url, {}  # first page is just the raw url
-        while self.next_url:
-            yield self.next_url, {}
-
-    def process(self, response):
-        self.next_url = response.json()["links"].get("next")
+    def pages(self, url) -> Generator[Tuple[str, dict], requests.Response, None]:
+        response = yield url, {}  # first page is just the raw url
+        # use assignment operator since python 3.8
+        while next_url := response.json()["links"].get("next"):
+            response = yield next_url, {}
 ```
 
 Note in both cases, iteration can be stopped early by simply stopping calling the endpoint, ie the following will make
