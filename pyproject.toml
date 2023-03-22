@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "slink-api"
-version = "0.1.4"
+version = "0.1.5"
 description = "Simple and expressive REST clients without the fuss"
 authors = ["James Lloyd <james.allan.lloyd@gmail.com>"]
 readme = "README.md"
