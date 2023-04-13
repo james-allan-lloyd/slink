@@ -24,6 +24,9 @@ class Api:
     def check_signature(self, signature: inspect.Signature, args, kwargs):
         signature.bind(self, *args, **kwargs)
 
+    def check_response(self):
+        pass
+
     def construct_url(self, url_template: str, kwargs: dict):
         try:
             formatted_url = url_template.format_map(kwargs)
