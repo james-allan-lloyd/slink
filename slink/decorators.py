@@ -22,6 +22,7 @@ def _wrap_response_func(
             self._response = self.session.request(
                 method=method, url=url, params=params, json=json
             )
+            self.check_response()
             result = process_response(self, **kwargs)
             self._response = None
             return result
@@ -109,6 +110,7 @@ def get_pages(url_template, pager: Optional[Pager] = None, **kwargs):
                     response = self.session.get(url, params=params)
                     assert response
                     self._response = response
+                    self.check_response()
                     for value in get_impl(self, *args, **kwargs):
                         yield value
             except StopIteration:
