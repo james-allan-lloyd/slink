@@ -39,7 +39,8 @@ class Api:
 
 
 class Query:
-    pass
+    def __init__(self, alias: str = ""):
+        self.alias = alias
 
 
 class Body:
@@ -48,14 +49,16 @@ class Body:
 
 class DecoratorParser:
     def __init__(self, kwargs) -> None:
-        self.queryParams = [k for k, v in kwargs.items() if type(v) == Query]
+        self.queryParams = {k: v.alias if len(v.alias) else k for k, v in kwargs.items() if type(v) == Query}
         self.bodyParams = [k for k, v in kwargs.items() if type(v) == Body]
 
     def parse(self, args, kwargs) -> Tuple[Dict[str, str], List[str]]:
         if len(args):
             raise Exception("Must use keyword arguments in api calls")
 
-        params = {k: v for k, v in kwargs.items() if k in self.queryParams}
+        params = {
+            self.queryParams[k]: v for k, v in kwargs.items() if k in self.queryParams
+        }
         body = [v for k, v in kwargs.items() if k in self.bodyParams]
 
         return params, body
