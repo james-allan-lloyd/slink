@@ -101,13 +101,15 @@ def get_pages(url_template, pager: Optional[Pager] = None, **kwargs):
             response = None
             try:
                 while True:
-                    url, page_params = (
-                        page_generator.send(response)
-                        if response
-                        else next(page_generator)
-                    )
-                    params.update(page_params)
-                    response = self.session.get(url, params=params)
+                    page_params = None
+                    if response is not None:
+                        url, page_params = page_generator.send(response)
+                    elif next_result := next(page_generator):
+                        assert next_result
+                        url, page_params = next_result
+                    if page_params is not None:
+                        page_params = {**params, **page_params}
+                    response = self.session.get(url, params=page_params)
                     assert response
                     self._response = response
                     self.check_response()
