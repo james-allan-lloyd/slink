@@ -1,9 +1,11 @@
+from ast import Tuple
 from typing import Generator
 import pytest
+import requests
 import responses
 
 from slink import Api, get_pages
-from slink.api import Query
+from slink.api import PagerGeneratorType, Query
 
 from support import DEFAULT_BASE_URL, setup_page_responses, SimplePager, LinkedPager
 
@@ -76,6 +78,51 @@ def test_it_supports_pagination_with_params(mocked_responses):
     api = PagedApi(base_url=base_url)
     actual_results = []
     for elem in api.get_paginated(foo="bar"):
+        actual_results.append(elem)
+
+    assert actual_results == data
+
+
+def test_it_overrides_pagination_params(mocked_responses):
+    """
+    Different to the former case, include a parameter that needs to be overriden BY a pagination parameter.
+
+    FIXME: right now, this means that the startAt parameter is kind of useless - it'll always be overriden. Would be
+    nice to support the use case of beginning at a specific page (resuming pagingation, say).
+    """
+    base_url = DEFAULT_BASE_URL
+    data = list(range(1, 20))
+    page_responses: list[responses.BaseResponse] = []
+    for i in range(0, 20, 5):
+        page = {
+            "data": data[i : i + 5],
+            "total": len(data),
+            "maxResults": 5,
+        }
+        print(page)
+        page_responses.append(
+            mocked_responses.get(
+                f"{base_url}/rest/api/3/pages",
+                json=page,
+                match=[
+                    responses.matchers.query_param_matcher(
+                        {"startAt": i, "maxCount": 5, "foo": "bar"}
+                    )
+                ],
+            )
+        )
+
+    class PagedApi(Api):
+        @get_pages(
+            "rest/api/3/pages", pager=SimplePager(), foo=Query(), startAt=Query()
+        )
+        def get_paginated(self, foo: str, startAt: int):
+            for value in self.response.json()["data"]:
+                yield int(value)
+
+    api = PagedApi(base_url=base_url)
+    actual_results = []
+    for elem in api.get_paginated(foo="bar", startAt=5):
         actual_results.append(elem)
 
     assert actual_results == data
@@ -163,3 +210,67 @@ def test_it_throws_if_get_pages_is_given_no_pager():
                 pass
 
     assert "Must supply pager argument to get_pages" in str(e)
+
+
+@pytest.fixture
+def generated_cursor_data(mocked_responses):
+    base_url = DEFAULT_BASE_URL
+    data = list(range(1, 20))
+    num_pages = 4
+    for i in range(0, num_pages):
+        page = {
+            "data": data[i * 5 : (i + 1) * 5],
+            "total": len(data),
+            "links": {"next": f"{base_url}/rest/api/3/pages?cursor={i+1}"},
+        }
+        if i + 1 >= num_pages:
+            page["links"] = {}
+        if i == 0:
+            mocked_responses.get(
+                f"{base_url}/rest/api/3/pages",
+                json=page,
+                match=[
+                    responses.matchers.query_param_matcher(
+                        {
+                            "my_arg": "foo",
+                        }
+                    )
+                ],
+            )
+        else:
+            mocked_responses.get(
+                f"{base_url}/rest/api/3/pages",
+                json=page,
+                match=[
+                    responses.matchers.query_param_matcher(
+                        {
+                            "cursor": i,
+                        }
+                    )
+                ],
+            )
+
+    return data
+
+
+def test_pagers_can_return_none_to_allow_page_url_as_is(generated_cursor_data):
+    """
+    For pagination schemes where there is just a "next page" link, we want to avoid adding paramters from the original call (as parsed by the decorator). To do this, you can just return None from the page generator.
+    """
+
+    class CursorPager:
+        def pages(self, url: str) -> PagerGeneratorType:
+            response = yield url, {}  # first page is just the raw url
+            while next_url := response.json()["links"].get("next"):
+                response = yield next_url, None
+
+    class PagedApi(Api):
+        @get_pages("rest/api/3/pages", pager=CursorPager(), my_arg=Query())
+        def get_paginated(self, my_arg: str):
+            for x in self.response.json()["data"]:
+                yield x
+
+    api = PagedApi(base_url=DEFAULT_BASE_URL)
+    actual_data = list(api.get_paginated(my_arg="foo"))
+
+    assert actual_data == generated_cursor_data

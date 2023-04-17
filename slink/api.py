@@ -1,5 +1,4 @@
-import functools
-from typing import Any, Dict, List, Optional, Protocol, Generator, Tuple
+from typing import Dict, List, Optional, Protocol, Generator, Tuple, Union
 from urllib.parse import urljoin, urlparse
 import requests
 import inspect
@@ -49,7 +48,11 @@ class Body:
 
 class DecoratorParser:
     def __init__(self, kwargs) -> None:
-        self.queryParams = {k: v.alias if len(v.alias) else k for k, v in kwargs.items() if type(v) == Query}
+        self.queryParams = {
+            k: v.alias if len(v.alias) else k
+            for k, v in kwargs.items()
+            if type(v) == Query
+        }
         self.bodyParams = [k for k, v in kwargs.items() if type(v) == Body]
 
     def parse(self, args, kwargs) -> Tuple[Dict[str, str], List[str]]:
@@ -64,6 +67,11 @@ class DecoratorParser:
         return params, body
 
 
+PagerGeneratorType = Generator[
+    Union[Tuple[str, dict], Tuple[str, None]], requests.Response, None
+]
+
+
 class Pager(Protocol):
-    def pages(self, url: str) -> Generator[Tuple[str, dict], requests.Response, None]:  # type: ignore
+    def pages(self, url: str) -> PagerGeneratorType:  # type: ignore
         pass
